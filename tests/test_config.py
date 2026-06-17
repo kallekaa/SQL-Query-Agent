@@ -7,8 +7,13 @@ def test_config_loads_openai_values_from_dotenv(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    monkeypatch.delenv("SQL_AGENT_MODEL_PROVIDER", raising=False)
     monkeypatch.delenv("SQL_AGENT_DB_PATH", raising=False)
     monkeypatch.delenv("DATABASE_FILE", raising=False)
+    monkeypatch.delenv("LOCAL_MODEL_BASE_URL", raising=False)
+    monkeypatch.delenv("LOCAL_MODEL_NAME", raising=False)
+    monkeypatch.delenv("LOCAL_MODEL_API_KEY", raising=False)
     (tmp_path / ".env").write_text(
         "\n".join(
             [
@@ -30,8 +35,13 @@ def test_sql_agent_db_path_takes_precedence_over_database_file(tmp_path, monkeyp
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_MODEL", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    monkeypatch.delenv("SQL_AGENT_MODEL_PROVIDER", raising=False)
     monkeypatch.delenv("SQL_AGENT_DB_PATH", raising=False)
     monkeypatch.delenv("DATABASE_FILE", raising=False)
+    monkeypatch.delenv("LOCAL_MODEL_BASE_URL", raising=False)
+    monkeypatch.delenv("LOCAL_MODEL_NAME", raising=False)
+    monkeypatch.delenv("LOCAL_MODEL_API_KEY", raising=False)
     (tmp_path / ".env").write_text(
         "\n".join(
             [

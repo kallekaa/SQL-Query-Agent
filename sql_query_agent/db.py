@@ -162,6 +162,25 @@ def get_schema(db_path: str | Path, table_names: list[str] | None = None) -> dic
         return {"tables": [], "missing_tables": table_names or [], "error": f"SQLite error: {exc}"}
 
 
+def get_table_names(db_path: str | Path) -> dict[str, Any]:
+    try:
+        with _readonly_connection(db_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT name
+                FROM sqlite_schema
+                WHERE type IN ('table', 'view')
+                  AND name NOT LIKE 'sqlite_%'
+                ORDER BY name
+                """
+            ).fetchall()
+            return {"tables": [row["name"] for row in rows], "error": None}
+    except DatabaseError as exc:
+        return {"tables": [], "error": str(exc)}
+    except sqlite3.Error as exc:
+        return {"tables": [], "error": f"SQLite error: {exc}"}
+
+
 def query_database(db_path: str | Path, sql: str, max_rows: int = 100) -> dict[str, Any]:
     max_rows = max(1, int(max_rows))
 

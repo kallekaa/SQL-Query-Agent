@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import Any
 
 from .sample_data import init_sample_database
 
@@ -44,14 +45,19 @@ def main(argv: list[str] | None = None) -> int:
             config = config_from_env(
                 db_path=args.db,
                 model=args.model,
+                provider=args.provider,
+                base_url=args.base_url,
                 max_rows=args.max_rows,
                 show_sql=args.show_sql,
+                show_table=args.show_table,
             )
             answer = ask(args.question, config)
             print(answer.answer)
             if args.show_sql and answer.sql_queries:
                 for sql in answer.sql_queries:
                     print(f"SQL: {sql}")
+            if args.show_table and answer.query_results:
+                print_query_result_tables(answer.query_results)
             return 0
 
         if args.command == "chat":
@@ -60,8 +66,11 @@ def main(argv: list[str] | None = None) -> int:
             config = config_from_env(
                 db_path=args.db,
                 model=args.model,
+                provider=args.provider,
+                base_url=args.base_url,
                 max_rows=args.max_rows,
                 show_sql=args.show_sql,
+                show_table=args.show_table,
             )
             run_chat(config)
             return 0
@@ -79,9 +88,87 @@ def _add_agent_options(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="SQLite database path. Defaults to SQL_AGENT_DB_PATH, then DATABASE_FILE.",
     )
-    parser.add_argument("--model", default=None, help="OpenAI model. Defaults to OPENAI_MODEL.")
+    parser.add_argument(
+        "--provider",
+        choices=["openai", "local"],
+        default=None,
+        help="Model provider. Defaults to SQL_AGENT_MODEL_PROVIDER, then openai.",
+    )
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="Model name. Defaults to OPENAI_MODEL for OpenAI or LOCAL_MODEL_NAME/local auto-detection.",
+    )
+    parser.add_argument(
+        "--base-url",
+        default=None,
+        help="OpenAI-compatible base URL. Used mainly with --provider local.",
+    )
     parser.add_argument("--max-rows", type=int, default=None, help="Maximum rows returned from a query.")
     parser.add_argument("--show-sql", action="store_true", help="Print SQL queries used by the agent.")
+    parser.add_argument("--show-table", action="store_true", help="Print SQL query results as formatted tables.")
+
+
+def print_query_result_tables(query_results: list[dict[str, Any]]) -> None:
+    for index, result in enumerate(query_results, start=1):
+        if len(query_results) > 1:
+            print(f"Result table {index}:")
+        print(format_query_result_table(result))
+
+
+def format_query_result_table(result: dict[str, Any]) -> str:
+    error = result.get("error")
+    sql = result.get("sql")
+    if error:
+        return f"Query failed{f' for SQL: {sql}' if sql else ''}\n{error}"
+
+    columns = [str(column) for column in result.get("columns", [])]
+    rows = result.get("rows", [])
+    if not columns:
+        return "(no columns)"
+    if not rows:
+        return _format_empty_table(columns, bool(result.get("truncated")))
+
+    table_rows = [
+        ["" if row.get(column) is None else str(row.get(column)) for column in columns]
+        for row in rows
+        if isinstance(row, dict)
+    ]
+    widths = [
+        max(len(column), *(len(row[index]) for row in table_rows))
+        for index, column in enumerate(columns)
+    ]
+
+    border = _table_border(widths)
+    header = _table_row(columns, widths)
+    separator = _table_border(widths)
+    body = [_table_row(row, widths) for row in table_rows]
+    lines = [border, header, separator, *body, border]
+    if result.get("truncated"):
+        lines.append("Result truncated; showing returned rows only.")
+    return "\n".join(lines)
+
+
+def _format_empty_table(columns: list[str], truncated: bool) -> str:
+    widths = [len(column) for column in columns]
+    lines = [
+        _table_border(widths),
+        _table_row(columns, widths),
+        _table_border(widths),
+        "(no rows)",
+    ]
+    if truncated:
+        lines.append("Result truncated; showing returned rows only.")
+    return "\n".join(lines)
+
+
+def _table_border(widths: list[int]) -> str:
+    return "+" + "+".join("-" * (width + 2) for width in widths) + "+"
+
+
+def _table_row(values: list[str], widths: list[int]) -> str:
+    padded = [value.ljust(widths[index]) for index, value in enumerate(values)]
+    return "| " + " | ".join(padded) + " |"
 
 
 if __name__ == "__main__":

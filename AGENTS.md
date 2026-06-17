@@ -19,14 +19,21 @@ Required for live agent calls:
 ```env
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-5.4-mini
+SQL_AGENT_MODEL_PROVIDER=openai
 DATABASE_FILE=./data/sample.db
+LOCAL_MODEL_BASE_URL=http://localhost:1234/v1
+LOCAL_MODEL_NAME=
+LOCAL_MODEL_API_KEY=local
+LANGSMITH_TRACING=false
+LANGSMITH_API_KEY=
+LANGSMITH_PROJECT=sql-query-agent
 ```
 
 ## Commands
 
 ```powershell
 sql-agent init-sample --db ./data/sample.db
-sql-agent ask "How many customers do we have?" --show-sql
+sql-agent ask "How many customers do we have?" --show-sql --show-table
 sql-agent chat
 pytest
 ```
@@ -36,5 +43,7 @@ pytest
 - Keep dependencies minimal. Prefer stdlib unless there is a clear reason to add a package.
 - Preserve read-only runtime database access. Query execution must reject writes before SQLite execution.
 - Keep model-backed tests optional; normal tests should not require `OPENAI_API_KEY`.
+- Keep local model support generic as `provider=local`; do not hard-code one local model app in code identifiers.
+- Keep LangSmith tracing opt-in through `.env`; never print or commit `LANGSMITH_API_KEY`.
 - Use `DATABASE_FILE` for the main documented DB path and keep `SQL_AGENT_DB_PATH` as a compatible alias.
 - Do not commit `.env`, local SQLite databases, pytest temp folders, or virtual environments.
