@@ -52,6 +52,29 @@ def test_cli_accepts_memory_options_for_ask_and_chat() -> None:
     assert chat_args.memory_enabled is None
 
 
+def test_cli_accepts_ui_command_options() -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "ui",
+            "--db",
+            "./data/sample.db",
+            "--host",
+            "127.0.0.1",
+            "--port",
+            "8765",
+            "--no-open",
+        ]
+    )
+
+    assert args.command == "ui"
+    assert args.db == "./data/sample.db"
+    assert args.host == "127.0.0.1"
+    assert args.port == 8765
+    assert args.open_browser is False
+
+
 def test_format_query_result_table_formats_rows() -> None:
     output = format_query_result_table(
         {

@@ -27,6 +27,14 @@ sql-agent = "sql_query_agent.cli:main"
 [tool.setuptools.packages.find]
 include = ["sql_query_agent*"]
 
+[tool.setuptools.package-data]
+sql_query_agent = [
+    "static/*.html",
+    "static/*.css",
+    "static/*.js",
+    "static/vendor/*.js",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--basetemp=.pytest_tmp"

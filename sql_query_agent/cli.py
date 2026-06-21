@@ -26,6 +26,18 @@ def build_parser() -> argparse.ArgumentParser:
     chat_parser = subparsers.add_parser("chat", help="Start an interactive session.")
     _add_agent_options(chat_parser)
 
+    ui_parser = subparsers.add_parser("ui", help="Start a lightweight browser UI.")
+    _add_agent_options(ui_parser)
+    ui_parser.add_argument("--host", default="127.0.0.1", help="Host interface to bind.")
+    ui_parser.add_argument("--port", type=int, default=8000, help="Port to bind.")
+    ui_parser.add_argument(
+        "--no-open",
+        dest="open_browser",
+        action="store_false",
+        default=True,
+        help="Do not open the browser automatically.",
+    )
+
     return parser
 
 
@@ -72,6 +84,24 @@ def main(argv: list[str] | None = None) -> int:
                 memory_file=args.memory_file,
             )
             run_chat(config)
+            return 0
+
+        if args.command == "ui":
+            from .agent import config_from_env
+            from .web_ui import run_ui
+
+            config = config_from_env(
+                db_path=args.db,
+                model=args.model,
+                provider=args.provider,
+                base_url=args.base_url,
+                max_rows=args.max_rows,
+                show_sql=args.show_sql,
+                show_table=args.show_table,
+                memory_enabled=args.memory_enabled,
+                memory_file=args.memory_file,
+            )
+            run_ui(config, host=args.host, port=args.port, open_browser=args.open_browser)
             return 0
 
         parser.error(f"Unknown command: {args.command}")

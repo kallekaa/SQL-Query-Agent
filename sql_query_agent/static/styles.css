@@ -1,0 +1,281 @@
+:root {
+  color-scheme: light;
+  --bg: #f6f7f8;
+  --panel: #ffffff;
+  --text: #17202a;
+  --muted: #64717f;
+  --line: #d8dde3;
+  --accent: #146c64;
+  --accent-dark: #0f4f49;
+  --error: #b42318;
+  --code: #f1f3f5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+main {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 40px;
+}
+
+header {
+  margin-bottom: 18px;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.subtle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 650;
+}
+
+textarea {
+  width: 100%;
+  min-height: 116px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+  color: var(--text);
+  font: inherit;
+  background: #fff;
+}
+
+textarea:focus {
+  border-color: var(--accent);
+  outline: 3px solid rgba(20, 108, 100, 0.16);
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+button {
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  padding: 10px 16px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--accent-dark);
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.66;
+}
+
+.status {
+  color: var(--muted);
+  min-height: 1.5em;
+}
+
+.results {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.error {
+  color: var(--error);
+  font-weight: 650;
+}
+
+.section-title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+pre {
+  overflow-x: auto;
+  margin: 0;
+  border-radius: 6px;
+  background: var(--code);
+  padding: 12px;
+  font-size: 0.9rem;
+}
+
+code {
+  border-radius: 4px;
+  background: var(--code);
+  padding: 0.1em 0.3em;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.9em;
+}
+
+pre code {
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+th,
+td {
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+th {
+  background: #eef2f3;
+  font-weight: 700;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.query-meta {
+  color: var(--muted);
+  font-size: 0.88rem;
+  margin: 6px 0 0;
+}
+
+.markdown {
+  overflow-wrap: anywhere;
+}
+
+.markdown > :first-child {
+  margin-top: 0;
+}
+
+.markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown p {
+  margin: 0 0 12px;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  margin: 20px 0 8px;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.markdown h1 {
+  font-size: 1.35rem;
+}
+
+.markdown h2 {
+  font-size: 1.22rem;
+}
+
+.markdown h3 {
+  font-size: 1.08rem;
+}
+
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  font-size: 1rem;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0 0 12px;
+  padding-left: 24px;
+}
+
+.markdown li {
+  margin: 3px 0;
+}
+
+.markdown blockquote {
+  margin: 0 0 12px;
+  border-left: 4px solid var(--line);
+  padding: 4px 0 4px 12px;
+  color: var(--muted);
+}
+
+.markdown pre {
+  margin: 0 0 12px;
+}
+
+.markdown .table-wrap {
+  margin: 0 0 12px;
+}
+
+.markdown a {
+  color: var(--accent-dark);
+  font-weight: 650;
+}
+
+.markdown strong {
+  font-weight: 750;
+}
+
+.markdown hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 16px 0;
+}
+
+@media (max-width: 640px) {
+  main {
+    width: min(100% - 20px, 960px);
+    padding-top: 16px;
+  }
+
+  .panel {
+    padding: 14px;
+  }
+
+  button {
+    width: 100%;
+  }
+}

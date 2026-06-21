@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SQL Query Agent</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/vendor/marked.min.js" defer></script>
+  <script src="/vendor/purify.min.js" defer></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>SQL Query Agent</h1>
+      <p class="subtle">Ask questions about the configured SQLite database.</p>
+    </header>
+
+    <section class="panel">
+      <form id="question-form">
+        <label for="question">Question</label>
+        <textarea id="question" name="question" required placeholder="How many customers do we have?"></textarea>
+        <div class="controls">
+          <button id="ask-button" type="submit">Ask</button>
+          <span id="status" class="status" role="status" aria-live="polite"></span>
+        </div>
+      </form>
+    </section>
+
+    <section id="results" class="results" aria-live="polite"></section>
+  </main>
+</body>
+</html>
