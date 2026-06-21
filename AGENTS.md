@@ -19,7 +19,12 @@ Required for live agent calls:
 ```env
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-5.4-mini
-SQL_AGENT_MODEL_PROVIDER=openai
+SQL_AGENT_MODEL_PROVIDER=openrouter
+OPENROUTER_API_KEY=sk-or-...
+OPENROUTER_MODEL=openai/gpt-5.4-mini
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_SITE_URL=
+OPENROUTER_APP_NAME=SQL Query Agent
 DATABASE_FILE=./data/sample.db
 LOCAL_MODEL_BASE_URL=http://localhost:1234/v1
 LOCAL_MODEL_NAME=

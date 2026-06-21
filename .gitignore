@@ -5,4 +5,5 @@ __pycache__/
 .pytest_tmp/
 *.egg-info/
 data/*.db
+*.memory.md
 .env

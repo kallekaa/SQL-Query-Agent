@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 
+from sql_query_agent import agent
+from sql_query_agent.agent import AgentConfig
 from sql_query_agent.agent import _answer_from_result, _extract_query_results
+from sql_query_agent.sample_data import init_sample_database
 
 
 def test_extract_query_results_from_dict_tool_message() -> None:
@@ -81,3 +84,24 @@ def test_answer_from_result_includes_sql_and_query_results() -> None:
     assert answer.answer == "There are 4 customers."
     assert answer.sql_queries == [query_result["sql"]]
     assert answer.query_results == [query_result]
+
+
+def test_query_tool_prints_sql_and_table_immediately(tmp_path, capsys) -> None:
+    db_path = init_sample_database(tmp_path / "sample.db")
+    config = AgentConfig(
+        db_path=db_path,
+        model="gpt-5.4-mini",
+        show_sql=True,
+        show_table=True,
+        memory_enabled=False,
+    )
+    query_database = agent._make_tools(config)[1]
+
+    result = query_database("SELECT COUNT(*) AS customer_count FROM customers")
+
+    output = capsys.readouterr().out
+    assert result["error"] is None
+    assert output.index("SQL: SELECT COUNT(*) AS customer_count FROM customers") < output.index(
+        "| customer_count |"
+    )
+    assert output.endswith("\n\n")

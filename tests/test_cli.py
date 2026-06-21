@@ -28,6 +28,30 @@ def test_cli_accepts_show_table_for_ask_and_chat() -> None:
     assert chat_args.show_table is True
 
 
+def test_cli_accepts_openrouter_provider() -> None:
+    parser = build_parser()
+
+    ask_args = parser.parse_args(["ask", "How many customers?", "--provider", "openrouter"])
+    chat_args = parser.parse_args(["chat", "--provider", "openrouter"])
+
+    assert ask_args.provider == "openrouter"
+    assert chat_args.provider == "openrouter"
+
+
+def test_cli_accepts_memory_options_for_ask_and_chat() -> None:
+    parser = build_parser()
+
+    ask_args = parser.parse_args(
+        ["ask", "How many customers?", "--memory-file", "./notes.md", "--no-memory"]
+    )
+    chat_args = parser.parse_args(["chat", "--memory-file", "./chat-memory.md"])
+
+    assert ask_args.memory_file == "./notes.md"
+    assert ask_args.memory_enabled is False
+    assert chat_args.memory_file == "./chat-memory.md"
+    assert chat_args.memory_enabled is None
+
+
 def test_format_query_result_table_formats_rows() -> None:
     output = format_query_result_table(
         {

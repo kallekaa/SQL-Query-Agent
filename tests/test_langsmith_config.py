@@ -18,7 +18,7 @@ def test_runnable_config_adds_langsmith_trace_metadata() -> None:
     assert "sql-query-agent" in runnable_config["tags"]
     assert runnable_config["metadata"] == {
         "database_file": "data\\sample.db" if "\\" in str(Path("data/sample.db")) else "data/sample.db",
-        "provider": "openai",
+        "provider": "openrouter",
         "model": "gpt-5.4-mini",
         "max_rows": 25,
         "chat_session_id": "session-1",

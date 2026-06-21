@@ -50,14 +50,11 @@ def main(argv: list[str] | None = None) -> int:
                 max_rows=args.max_rows,
                 show_sql=args.show_sql,
                 show_table=args.show_table,
+                memory_enabled=args.memory_enabled,
+                memory_file=args.memory_file,
             )
             answer = ask(args.question, config)
             print(answer.answer)
-            if args.show_sql and answer.sql_queries:
-                for sql in answer.sql_queries:
-                    print(f"SQL: {sql}")
-            if args.show_table and answer.query_results:
-                print_query_result_tables(answer.query_results)
             return 0
 
         if args.command == "chat":
@@ -71,6 +68,8 @@ def main(argv: list[str] | None = None) -> int:
                 max_rows=args.max_rows,
                 show_sql=args.show_sql,
                 show_table=args.show_table,
+                memory_enabled=args.memory_enabled,
+                memory_file=args.memory_file,
             )
             run_chat(config)
             return 0
@@ -86,27 +85,42 @@ def _add_agent_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--db",
         default=None,
-        help="SQLite database path. Defaults to SQL_AGENT_DB_PATH, then DATABASE_FILE.",
+        help="SQLite database path. Defaults to DATABASE_FILE, then legacy SQL_AGENT_DB_PATH.",
     )
     parser.add_argument(
         "--provider",
-        choices=["openai", "local"],
+        choices=["openai", "local", "openrouter"],
         default=None,
-        help="Model provider. Defaults to SQL_AGENT_MODEL_PROVIDER, then openai.",
+        help="Model provider. Defaults to SQL_AGENT_MODEL_PROVIDER, then openrouter.",
     )
     parser.add_argument(
         "--model",
         default=None,
-        help="Model name. Defaults to OPENAI_MODEL for OpenAI or LOCAL_MODEL_NAME/local auto-detection.",
+        help=(
+            "Model name. Defaults to OPENAI_MODEL for OpenAI, OPENROUTER_MODEL "
+            "for OpenRouter, or LOCAL_MODEL_NAME/local auto-detection."
+        ),
     )
     parser.add_argument(
         "--base-url",
         default=None,
-        help="OpenAI-compatible base URL. Used mainly with --provider local.",
+        help="OpenAI-compatible base URL. Overrides the selected provider's configured base URL.",
     )
     parser.add_argument("--max-rows", type=int, default=None, help="Maximum rows returned from a query.")
     parser.add_argument("--show-sql", action="store_true", help="Print SQL queries used by the agent.")
     parser.add_argument("--show-table", action="store_true", help="Print SQL query results as formatted tables.")
+    parser.add_argument(
+        "--memory-file",
+        default=None,
+        help="Markdown file for persistent database notes. Defaults to a sidecar next to --db.",
+    )
+    parser.add_argument(
+        "--no-memory",
+        dest="memory_enabled",
+        action="store_false",
+        default=None,
+        help="Disable persistent markdown memory for this run.",
+    )
 
 
 def print_query_result_tables(query_results: list[dict[str, Any]]) -> None:
