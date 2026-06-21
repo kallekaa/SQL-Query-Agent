@@ -70,6 +70,12 @@ Start an interactive session:
 sql-agent chat
 ```
 
+Start the browser UI:
+
+```powershell
+sql-agent ui
+```
+
 Use a local OpenAI-compatible model server:
 
 ```powershell
@@ -82,7 +88,7 @@ OpenRouter is the default provider, so this is equivalent to passing `--provider
 sql-agent ask "How many customers do we have?" --model openai/gpt-5.4-mini --show-sql
 ```
 
-Use `--db` on `ask` or `chat` to override the database path for a single run.
+Use `--db` on `ask`, `chat`, or `ui` to override the database path for a single run.
 
 ## CLI Commands
 
@@ -110,6 +116,10 @@ Use `--db` on `ask` or `chat` to override the database path for a single run.
 | `sql-agent chat --provider local --show-sql --show-table` | Starts interactive mode with a local OpenAI-compatible model server and prints SQL plus result tables. |
 | `sql-agent chat --db ./data/sample.db` | Starts interactive mode against a specific SQLite database file. |
 | `sql-agent chat --no-memory` | Starts interactive mode without loading or writing persistent memory. |
+| `sql-agent ui` | Starts a lightweight local browser UI at `http://127.0.0.1:8000/` and opens it automatically. |
+| `sql-agent ui --no-open` | Starts the browser UI without opening a browser tab. |
+| `sql-agent ui --host 127.0.0.1 --port 8765` | Starts the browser UI on a specific host and port. |
+| `sql-agent ui --db ./data/sample.db --provider local` | Starts the browser UI with the same model and database overrides used by `ask` and `chat`. |
 | `sql-agent --help` | Shows top-level CLI help. |
 | `sql-agent <command> --help` | Shows help for a specific command, such as `ask`, `chat`, or `init-sample`. |
 
@@ -119,9 +129,9 @@ The app uses a ReAct-style LangGraph agent: the model receives the user question
 
 ### Key Code Path
 
-These are the main steps the code follows when you run `sql-agent ask` or `sql-agent chat`:
+These are the main steps the code follows when you run `sql-agent ask`, `sql-agent chat`, or `sql-agent ui`:
 
-1. `sql_query_agent/cli.py` parses `init-sample`, `ask`, and `chat` commands.
+1. `sql_query_agent/cli.py` parses `init-sample`, `ask`, `chat`, and `ui` commands.
 2. `config_from_env` in `sql_query_agent/agent.py` loads `.env`, applies CLI overrides, validates the provider, resolves the model settings, and chooses the database path.
 3. `build_agent` creates a LangGraph ReAct agent with a `ChatOpenAI` client and two tools: `get_schema` and `query_database`.
 4. `_system_prompt` builds the instruction prompt. It includes today's date, the available table names, optional persistent memory notes, and the rules for read-only SQL.
@@ -194,6 +204,8 @@ Database path precedence:
 ## Persistent Memory
 
 The agent can keep short reusable notes about the database in a markdown file. Memory is enabled by default and is loaded into the system prompt before each `ask` run and each `chat` turn.
+
+The browser UI uses the same memory behavior as `ask`: each submitted question can load existing notes and append one new reusable note after a successful database-backed answer.
 
 By default, the memory file is a sidecar next to the configured database. For `DATABASE_FILE=./data/sample.db`, the memory file is `./data/sample.memory.md`.
 
@@ -273,5 +285,7 @@ sql_query_agent/
   cli.py          argparse command-line interface.
   db.py           SQLite schema/query tools and read-only SQL validation.
   sample_data.py  Sample database initializer.
+  web_ui.py       Lightweight stdlib browser UI server and JSON API.
+  static/         Browser UI HTML, CSS, JavaScript, and vendored markdown scripts.
 tests/            Minimal pytest coverage for config, SQL safety, schema, and CLI setup.
 ```
