@@ -36,6 +36,7 @@ DATABASE_FILE=./data/sample.db
 SQL_AGENT_MAX_ROWS=100
 SQL_AGENT_MEMORY_ENABLED=true
 SQL_AGENT_MEMORY_FILE=
+SQL_AGENT_AUDIT_LOG_FILE=
 LOCAL_MODEL_BASE_URL=http://localhost:1234/v1
 LOCAL_MODEL_NAME=
 LOCAL_MODEL_API_KEY=local
@@ -109,6 +110,7 @@ Use `--db` on `ask`, `chat`, or `ui` to override the database path for a single 
 | `sql-agent ask "..." --max-rows 50` | Limits the number of rows returned by the SQL query tool for that run. |
 | `sql-agent ask "..." --memory-file ./data/custom-memory.md` | Uses a specific markdown file for persistent database notes. |
 | `sql-agent ask "..." --no-memory` | Disables persistent markdown memory for that run. |
+| `sql-agent ask "..." --audit-log ./logs/query-audit.jsonl` | Appends query audit events as JSON Lines for generated SQL, timing, row count, truncation, provider/model, and errors. |
 | `sql-agent chat` | Starts an interactive single-user terminal session. Uses `.env` for model and database settings. |
 | `sql-agent chat --show-sql` | Starts interactive mode and prints SQL queries used for each answer. |
 | `sql-agent chat --show-table` | Starts interactive mode and prints SQL query result tables after each answer. |
@@ -189,6 +191,7 @@ Values are loaded from `.env` in the current working directory. CLI flags take p
 | `SQL_AGENT_MAX_ROWS` | Maximum rows returned by the query tool. Defaults to `100`. |
 | `SQL_AGENT_MEMORY_ENABLED` | Enables persistent markdown memory when true. Defaults to `true`. |
 | `SQL_AGENT_MEMORY_FILE` | Optional markdown memory file path. Defaults to a per-database sidecar such as `./data/sample.memory.md`. |
+| `SQL_AGENT_AUDIT_LOG_FILE` | Optional JSON Lines file for query audit events. Disabled when empty. |
 | `LANGSMITH_TRACING` | Set to `true` to send LangGraph/LangChain traces to LangSmith. |
 | `LANGSMITH_API_KEY` | LangSmith API key used when tracing is enabled. |
 | `LANGSMITH_PROJECT` | LangSmith project name for traces. Defaults to `sql-query-agent` in `.env.example`. |
@@ -212,6 +215,16 @@ By default, the memory file is a sidecar next to the configured database. For `D
 After a database-backed answer, the model gets a small follow-up prompt asking whether one short note should be appended. Notes should help future SQL generation, such as remembering table relationships, business term mappings, useful joins, status meanings, date semantics, or reusable metric definitions. One-off answers and raw counts should not be written.
 
 Use `SQL_AGENT_MEMORY_FILE` or `--memory-file` to choose a different file. Use `SQL_AGENT_MEMORY_ENABLED=false` or `--no-memory` to disable loading and writing memory.
+
+## Query Audit Logging
+
+Query audit logging is disabled by default. To enable it, set `SQL_AGENT_AUDIT_LOG_FILE` or pass `--audit-log` to `ask`, `chat`, or `ui`:
+
+```powershell
+sql-agent ask "How many paid orders do we have?" --audit-log ./logs/query-audit.jsonl
+```
+
+Each executed query tool call appends one JSON object per line with the generated SQL, duration, row count, truncation flag, provider, model, database path, status, and error type/message if validation or SQLite execution failed. Audit events do not include API keys, prompts, final answers, or result rows.
 
 ## Local Models
 

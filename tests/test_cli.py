@@ -52,6 +52,18 @@ def test_cli_accepts_memory_options_for_ask_and_chat() -> None:
     assert chat_args.memory_enabled is None
 
 
+def test_cli_accepts_audit_log_for_agent_commands() -> None:
+    parser = build_parser()
+
+    ask_args = parser.parse_args(["ask", "How many customers?", "--audit-log", "./logs/audit.jsonl"])
+    chat_args = parser.parse_args(["chat", "--audit-log", "./logs/chat-audit.jsonl"])
+    ui_args = parser.parse_args(["ui", "--audit-log", "./logs/ui-audit.jsonl"])
+
+    assert ask_args.audit_log_file == "./logs/audit.jsonl"
+    assert chat_args.audit_log_file == "./logs/chat-audit.jsonl"
+    assert ui_args.audit_log_file == "./logs/ui-audit.jsonl"
+
+
 def test_cli_accepts_ui_command_options() -> None:
     parser = build_parser()
 

@@ -64,6 +64,7 @@ def main(argv: list[str] | None = None) -> int:
                 show_table=args.show_table,
                 memory_enabled=args.memory_enabled,
                 memory_file=args.memory_file,
+                audit_log_file=args.audit_log_file,
             )
             answer = ask(args.question, config)
             print(answer.answer)
@@ -82,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
                 show_table=args.show_table,
                 memory_enabled=args.memory_enabled,
                 memory_file=args.memory_file,
+                audit_log_file=args.audit_log_file,
             )
             run_chat(config)
             return 0
@@ -100,6 +102,7 @@ def main(argv: list[str] | None = None) -> int:
                 show_table=args.show_table,
                 memory_enabled=args.memory_enabled,
                 memory_file=args.memory_file,
+                audit_log_file=args.audit_log_file,
             )
             run_ui(config, host=args.host, port=args.port, open_browser=args.open_browser)
             return 0
@@ -150,6 +153,12 @@ def _add_agent_options(parser: argparse.ArgumentParser) -> None:
         action="store_false",
         default=None,
         help="Disable persistent markdown memory for this run.",
+    )
+    parser.add_argument(
+        "--audit-log",
+        dest="audit_log_file",
+        default=None,
+        help="Append query audit events as JSON Lines to this file.",
     )
 
 
