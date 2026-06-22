@@ -105,3 +105,56 @@ def test_query_tool_prints_sql_and_table_immediately(tmp_path, capsys) -> None:
         "| customer_count |"
     )
     assert output.endswith("\n\n")
+
+
+def test_query_tool_writes_audit_event_for_successful_query(tmp_path) -> None:
+    db_path = init_sample_database(tmp_path / "sample.db")
+    audit_log_path = tmp_path / "logs" / "query-audit.jsonl"
+    config = AgentConfig(
+        db_path=db_path,
+        model="gpt-5.4-mini",
+        provider="openai",
+        max_rows=25,
+        memory_enabled=False,
+        audit_log_path=audit_log_path,
+    )
+    query_database = agent._make_tools(config)[1]
+
+    result = query_database("SELECT COUNT(*) AS customer_count FROM customers")
+
+    event = json.loads(audit_log_path.read_text(encoding="utf-8").strip())
+    assert result["error"] is None
+    assert event["event"] == "query_database"
+    assert event["database_file"] == str(db_path)
+    assert event["provider"] == "openai"
+    assert event["model"] == "gpt-5.4-mini"
+    assert event["max_rows"] == 25
+    assert event["sql"] == "SELECT COUNT(*) AS customer_count FROM customers"
+    assert event["row_count"] == 1
+    assert event["truncated"] is False
+    assert event["status"] == "ok"
+    assert event["error_type"] is None
+    assert event["error"] is None
+    assert isinstance(event["duration_ms"], float)
+    assert "timestamp" in event
+
+
+def test_query_tool_writes_audit_event_for_rejected_query(tmp_path) -> None:
+    db_path = init_sample_database(tmp_path / "sample.db")
+    audit_log_path = tmp_path / "query-audit.jsonl"
+    config = AgentConfig(
+        db_path=db_path,
+        model="gpt-5.4-mini",
+        memory_enabled=False,
+        audit_log_path=audit_log_path,
+    )
+    query_database = agent._make_tools(config)[1]
+
+    result = query_database("DELETE FROM customers")
+
+    event = json.loads(audit_log_path.read_text(encoding="utf-8").strip())
+    assert result["error"]
+    assert result["error_type"] == "SQLValidationError"
+    assert event["status"] == "error"
+    assert event["error_type"] == "SQLValidationError"
+    assert event["error"] == result["error"]

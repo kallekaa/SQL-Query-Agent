@@ -19,6 +19,7 @@ def _clear_agent_env(monkeypatch) -> None:
         "SQL_AGENT_MAX_ROWS",
         "SQL_AGENT_MEMORY_ENABLED",
         "SQL_AGENT_MEMORY_FILE",
+        "SQL_AGENT_AUDIT_LOG_FILE",
         "LOCAL_MODEL_BASE_URL",
         "LOCAL_MODEL_NAME",
         "LOCAL_MODEL_API_KEY",
@@ -108,6 +109,27 @@ def test_memory_file_can_be_overridden_from_env(tmp_path, monkeypatch) -> None:
     config = config_from_env()
 
     assert str(config.memory_path).replace("\\", "/") == "notes/database-memory.md"
+
+
+def test_audit_log_file_can_be_enabled_from_env(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    _clear_agent_env(monkeypatch)
+    (tmp_path / ".env").write_text(
+        "\n".join(
+            [
+                "SQL_AGENT_MODEL_PROVIDER=openai",
+                "OPENAI_API_KEY=test-key",
+                "OPENAI_MODEL=gpt-5.4-mini",
+                "DATABASE_FILE=./data/sample.db",
+                "SQL_AGENT_AUDIT_LOG_FILE=./logs/query-audit.jsonl",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = config_from_env()
+
+    assert str(config.audit_log_path).replace("\\", "/") == "logs/query-audit.jsonl"
 
 
 def test_memory_can_be_disabled_from_env(tmp_path, monkeypatch) -> None:

@@ -6,4 +6,6 @@ __pycache__/
 *.egg-info/
 data/*.db
 *.memory.md
+*.audit.jsonl
+logs/*.jsonl
 .env

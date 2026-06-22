@@ -11,9 +11,10 @@ from __future__ import annotations
 import ast
 import json
 import os
+import time
 import uuid
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -50,6 +51,7 @@ class AgentConfig:
     show_table: bool = False
     memory_enabled: bool = True
     memory_path: Path | None = None
+    audit_log_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,7 @@ def config_from_env(
     show_table: bool = False,
     memory_enabled: bool | None = None,
     memory_file: str | Path | None = None,
+    audit_log_file: str | Path | None = None,
 ) -> AgentConfig:
     # Load repo-local settings before reading environment variables. CLI arguments
     # still take precedence because they are passed into this function directly.
@@ -152,6 +155,9 @@ def config_from_env(
             else _default_memory_path(resolved_db_path)
         )
 
+    configured_audit_log_file = audit_log_file or os.environ.get("SQL_AGENT_AUDIT_LOG_FILE")
+    resolved_audit_log_path = Path(configured_audit_log_file) if configured_audit_log_file else None
+
     return AgentConfig(
         db_path=resolved_db_path,
         model=resolved_model,
@@ -164,6 +170,7 @@ def config_from_env(
         show_table=show_table,
         memory_enabled=resolved_memory_enabled,
         memory_path=resolved_memory_path,
+        audit_log_path=resolved_audit_log_path,
     )
 
 
@@ -255,11 +262,47 @@ def _make_tools(config: AgentConfig):
 
     def query_database(sql: str) -> dict[str, Any]:
         """Execute one read-only SQLite SELECT or WITH query and return rows."""
+        started_at = time.perf_counter()
         result = execute_query(config.db_path, sql, max_rows=config.max_rows)
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        _write_query_audit_event(sql, result, duration_ms, config)
         _print_intermediate_query_output(sql, result, config)
         return result
 
     return [get_schema, query_database]
+
+
+def _write_query_audit_event(
+    sql: str,
+    result: dict[str, Any],
+    duration_ms: float,
+    config: AgentConfig,
+) -> None:
+    if config.audit_log_path is None:
+        return
+
+    event = {
+        "event": "query_database",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "database_file": str(config.db_path),
+        "provider": config.provider,
+        "model": config.model,
+        "max_rows": config.max_rows,
+        "sql": sql,
+        "duration_ms": round(duration_ms, 3),
+        "row_count": result.get("row_count", 0),
+        "truncated": bool(result.get("truncated")),
+        "status": "error" if result.get("error") else "ok",
+        "error_type": result.get("error_type"),
+        "error": result.get("error"),
+    }
+    _append_jsonl(config.audit_log_path, event)
+
+
+def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as file:
+        file.write(json.dumps(payload, default=str, ensure_ascii=False) + "\n")
 
 
 def _print_intermediate_query_output(sql: str, result: dict[str, Any], config: AgentConfig) -> None:

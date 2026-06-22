@@ -29,6 +29,7 @@ class QueryResult:
     truncated: bool
     sql: str
     error: str | None = None
+    error_type: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -38,6 +39,7 @@ class QueryResult:
             "truncated": self.truncated,
             "sql": self.sql,
             "error": self.error,
+            "error_type": self.error_type,
         }
 
 
@@ -204,9 +206,9 @@ def query_database(db_path: str | Path, sql: str, max_rows: int = 100) -> dict[s
                 sql=sql,
             ).to_dict()
     except DatabaseError as exc:
-        return QueryResult([], [], 0, False, sql, str(exc)).to_dict()
+        return QueryResult([], [], 0, False, sql, str(exc), exc.__class__.__name__).to_dict()
     except sqlite3.Error as exc:
-        return QueryResult([], [], 0, False, sql, f"SQLite error: {exc}").to_dict()
+        return QueryResult([], [], 0, False, sql, f"SQLite error: {exc}", exc.__class__.__name__).to_dict()
 
 
 def _json_safe_value(value: Any) -> Any:
