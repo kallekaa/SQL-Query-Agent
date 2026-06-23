@@ -37,6 +37,10 @@ SQL_AGENT_MAX_ROWS=100
 SQL_AGENT_MEMORY_ENABLED=true
 SQL_AGENT_MEMORY_FILE=
 SQL_AGENT_AUDIT_LOG_FILE=
+SQL_PLANNER_MODEL_PROVIDER=
+SQL_PLANNER_MODEL=
+SQL_PLANNER_BASE_URL=
+SQL_PLANNER_MAX_STEPS=25
 LOCAL_MODEL_BASE_URL=http://localhost:1234/v1
 LOCAL_MODEL_NAME=
 LOCAL_MODEL_API_KEY=local
@@ -77,6 +81,12 @@ Start the browser UI:
 sql-agent ui
 ```
 
+Start a goal-oriented planner/orchestrator session:
+
+```powershell
+sql-agent plan
+```
+
 Use a local OpenAI-compatible model server:
 
 ```powershell
@@ -89,7 +99,7 @@ OpenRouter is the default provider, so this is equivalent to passing `--provider
 sql-agent ask "How many customers do we have?" --model openai/gpt-5.4-mini --show-sql
 ```
 
-Use `--db` on `ask`, `chat`, or `ui` to override the database path for a single run.
+Use `--db` on `ask`, `chat`, `ui`, or `plan` to override the database path for a single run.
 
 ## CLI Commands
 
@@ -122,6 +132,11 @@ Use `--db` on `ask`, `chat`, or `ui` to override the database path for a single 
 | `sql-agent ui --no-open` | Starts the browser UI without opening a browser tab. |
 | `sql-agent ui --host 127.0.0.1 --port 8765` | Starts the browser UI on a specific host and port. |
 | `sql-agent ui --db ./data/sample.db --provider local` | Starts the browser UI with the same model and database overrides used by `ask` and `chat`. |
+| `sql-agent plan` | Starts an interactive planner/orchestrator session. Each user turn is treated as a goal. |
+| `sql-agent plan --show-steps` | Prints planner-to-SQL-agent call summaries while the planner works. |
+| `sql-agent plan --show-sql --show-table` | Shows SQL and result tables from the SQL-agent calls made by the planner. |
+| `sql-agent plan --planner-provider openai --planner-model gpt-5.4-mini` | Uses a planner-specific model while the SQL agent keeps its own configured model. |
+| `sql-agent plan --max-steps 40` | Allows up to 40 SQL-agent calls for each planner turn. |
 | `sql-agent --help` | Shows top-level CLI help. |
 | `sql-agent <command> --help` | Shows help for a specific command, such as `ask`, `chat`, or `init-sample`. |
 
@@ -129,11 +144,13 @@ Use `--db` on `ask`, `chat`, or `ui` to override the database path for a single 
 
 The app uses a ReAct-style LangGraph agent: the model receives the user question, decides whether it needs database context, calls tools when needed, then produces a final natural-language answer from the tool results.
 
+The `plan` command adds a second ReAct-style planner/orchestrator. The planner receives the user's broader goal, breaks it into focused data questions, and can call the original SQL agent repeatedly through one tool named `ask_sql_agent`. The planner never receives direct SQL execution access; all schema lookup, SQL generation, read-only validation, query execution, result display, and database memory behavior still flow through the original SQL agent.
+
 ### Key Code Path
 
-These are the main steps the code follows when you run `sql-agent ask`, `sql-agent chat`, or `sql-agent ui`:
+These are the main steps the code follows when you run `sql-agent ask`, `sql-agent chat`, `sql-agent ui`, or `sql-agent plan`:
 
-1. `sql_query_agent/cli.py` parses `init-sample`, `ask`, `chat`, and `ui` commands.
+1. `sql_query_agent/cli.py` parses `init-sample`, `ask`, `chat`, `ui`, and `plan` commands.
 2. `config_from_env` in `sql_query_agent/agent.py` loads `.env`, applies CLI overrides, validates the provider, resolves the model settings, and chooses the database path.
 3. `build_agent` creates a LangGraph ReAct agent with a `ChatOpenAI` client and two tools: `get_schema` and `query_database`.
 4. `_system_prompt` builds the instruction prompt. It includes today's date, the available table names, optional persistent memory notes, and the rules for read-only SQL.
@@ -192,6 +209,10 @@ Values are loaded from `.env` in the current working directory. CLI flags take p
 | `SQL_AGENT_MEMORY_ENABLED` | Enables persistent markdown memory when true. Defaults to `true`. |
 | `SQL_AGENT_MEMORY_FILE` | Optional markdown memory file path. Defaults to a per-database sidecar such as `./data/sample.memory.md`. |
 | `SQL_AGENT_AUDIT_LOG_FILE` | Optional JSON Lines file for query audit events. Disabled when empty. |
+| `SQL_PLANNER_MODEL_PROVIDER` | Optional planner provider: `openrouter`, `openai`, or `local`. Defaults to the SQL agent provider. |
+| `SQL_PLANNER_MODEL` | Optional planner model name. Defaults to the SQL agent model when the planner provider matches. |
+| `SQL_PLANNER_BASE_URL` | Optional planner OpenAI-compatible base URL. Defaults to the SQL agent base URL when the planner provider matches. |
+| `SQL_PLANNER_MAX_STEPS` | Maximum SQL-agent calls per planner turn. Defaults to `25`. |
 | `LANGSMITH_TRACING` | Set to `true` to send LangGraph/LangChain traces to LangSmith. |
 | `LANGSMITH_API_KEY` | LangSmith API key used when tracing is enabled. |
 | `LANGSMITH_PROJECT` | LangSmith project name for traces. Defaults to `sql-query-agent` in `.env.example`. |
@@ -297,6 +318,7 @@ sql_query_agent/
   agent.py        LangGraph agent setup and .env-backed config.
   cli.py          argparse command-line interface.
   db.py           SQLite schema/query tools and read-only SQL validation.
+  planner.py      Planner/orchestrator agent that calls the SQL agent as a tool.
   sample_data.py  Sample database initializer.
   web_ui.py       Lightweight stdlib browser UI server and JSON API.
   static/         Browser UI HTML, CSS, JavaScript, and vendored markdown scripts.

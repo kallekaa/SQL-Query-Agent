@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import sqlite3
+from pathlib import Path
 
+from sql_query_agent.agent import AgentConfig
 from sql_query_agent.cli import build_parser, format_query_result_table, main
 
 
@@ -51,17 +53,18 @@ def test_cli_accepts_memory_options_for_ask_and_chat() -> None:
     assert chat_args.memory_file == "./chat-memory.md"
     assert chat_args.memory_enabled is None
 
-
 def test_cli_accepts_audit_log_for_agent_commands() -> None:
     parser = build_parser()
 
     ask_args = parser.parse_args(["ask", "How many customers?", "--audit-log", "./logs/audit.jsonl"])
     chat_args = parser.parse_args(["chat", "--audit-log", "./logs/chat-audit.jsonl"])
     ui_args = parser.parse_args(["ui", "--audit-log", "./logs/ui-audit.jsonl"])
+    plan_args = parser.parse_args(["plan", "--audit-log", "./logs/plan-audit.jsonl"])
 
     assert ask_args.audit_log_file == "./logs/audit.jsonl"
     assert chat_args.audit_log_file == "./logs/chat-audit.jsonl"
     assert ui_args.audit_log_file == "./logs/ui-audit.jsonl"
+    assert plan_args.audit_log_file == "./logs/plan-audit.jsonl"
 
 
 def test_cli_accepts_ui_command_options() -> None:
@@ -85,6 +88,75 @@ def test_cli_accepts_ui_command_options() -> None:
     assert args.host == "127.0.0.1"
     assert args.port == 8765
     assert args.open_browser is False
+
+
+def test_cli_accepts_plan_options() -> None:
+    parser = build_parser()
+
+    args = parser.parse_args(
+        [
+            "plan",
+            "--planner-provider",
+            "openai",
+            "--planner-model",
+            "gpt-5.4-mini",
+            "--planner-base-url",
+            "https://planner.test/v1",
+            "--max-steps",
+            "12",
+            "--show-steps",
+            "--show-sql",
+            "--show-table",
+        ]
+    )
+
+    assert args.command == "plan"
+    assert args.planner_provider == "openai"
+    assert args.planner_model == "gpt-5.4-mini"
+    assert args.planner_base_url == "https://planner.test/v1"
+    assert args.max_steps == 12
+    assert args.show_steps is True
+    assert args.show_sql is True
+    assert args.show_table is True
+
+
+def test_cli_plan_builds_sql_and_planner_configs(monkeypatch) -> None:
+    captured = {}
+
+    def fake_config_from_env(**kwargs):
+        captured["sql_kwargs"] = kwargs
+        return AgentConfig(
+            db_path=Path("data/sample.db"),
+            model="sql-model",
+            provider="openai",
+            api_key="sql-key",
+            memory_enabled=False,
+        )
+
+    def fake_run_plan_chat(config):
+        captured["planner_config"] = config
+
+    monkeypatch.setattr("sql_query_agent.agent.config_from_env", fake_config_from_env)
+    monkeypatch.setattr("sql_query_agent.planner.run_plan_chat", fake_run_plan_chat)
+
+    exit_code = main(
+        [
+            "plan",
+            "--db",
+            "./data/custom.db",
+            "--planner-model",
+            "planner-model",
+            "--max-steps",
+            "3",
+            "--show-steps",
+        ]
+    )
+
+    assert exit_code == 0
+    assert captured["sql_kwargs"]["db_path"] == "./data/custom.db"
+    assert captured["planner_config"].model == "planner-model"
+    assert captured["planner_config"].max_steps == 3
+    assert captured["planner_config"].show_steps is True
 
 
 def test_format_query_result_table_formats_rows() -> None:
