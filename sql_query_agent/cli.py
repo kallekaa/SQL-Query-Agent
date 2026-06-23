@@ -38,6 +38,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Do not open the browser automatically.",
     )
 
+    plan_parser = subparsers.add_parser("plan", help="Start an interactive planner/orchestrator session.")
+    _add_agent_options(plan_parser)
+    _add_planner_options(plan_parser)
+
     return parser
 
 
@@ -107,6 +111,33 @@ def main(argv: list[str] | None = None) -> int:
             run_ui(config, host=args.host, port=args.port, open_browser=args.open_browser)
             return 0
 
+        if args.command == "plan":
+            from .agent import config_from_env
+            from .planner import planner_config_from_env, run_plan_chat
+
+            sql_config = config_from_env(
+                db_path=args.db,
+                model=args.model,
+                provider=args.provider,
+                base_url=args.base_url,
+                max_rows=args.max_rows,
+                show_sql=args.show_sql,
+                show_table=args.show_table,
+                memory_enabled=args.memory_enabled,
+                memory_file=args.memory_file,
+                audit_log_file=args.audit_log_file,
+            )
+            planner_config = planner_config_from_env(
+                sql_config,
+                planner_model=args.planner_model,
+                planner_provider=args.planner_provider,
+                planner_base_url=args.planner_base_url,
+                max_steps=args.max_steps,
+                show_steps=args.show_steps,
+            )
+            run_plan_chat(planner_config)
+            return 0
+
         parser.error(f"Unknown command: {args.command}")
         return 2
     except Exception as exc:
@@ -159,6 +190,36 @@ def _add_agent_options(parser: argparse.ArgumentParser) -> None:
         dest="audit_log_file",
         default=None,
         help="Append query audit events as JSON Lines to this file.",
+    )
+
+
+def _add_planner_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--planner-provider",
+        choices=["openai", "local", "openrouter"],
+        default=None,
+        help="Planner model provider. Defaults to SQL_PLANNER_MODEL_PROVIDER, then the SQL agent provider.",
+    )
+    parser.add_argument(
+        "--planner-model",
+        default=None,
+        help="Planner model name. Defaults to SQL_PLANNER_MODEL, then the SQL agent model.",
+    )
+    parser.add_argument(
+        "--planner-base-url",
+        default=None,
+        help="Planner OpenAI-compatible base URL. Defaults to SQL_PLANNER_BASE_URL, then the SQL agent base URL.",
+    )
+    parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=None,
+        help="Maximum SQL-agent calls per planner turn. Defaults to SQL_PLANNER_MAX_STEPS or 25.",
+    )
+    parser.add_argument(
+        "--show-steps",
+        action="store_true",
+        help="Print planner-to-SQL-agent call summaries during a planner run.",
     )
 
 

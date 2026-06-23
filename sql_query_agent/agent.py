@@ -37,6 +37,17 @@ _MEMORY_HEADER = "# SQL Agent Memory\n\nShort reusable notes about this database
 
 
 @dataclass(frozen=True)
+class ModelSettings:
+    # Shared OpenAI-compatible chat model settings used by both the direct SQL
+    # agent and the planner/orchestrator.
+    model: str
+    provider: str = "openrouter"
+    base_url: str | None = None
+    api_key: str | None = None
+    default_headers: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
 class AgentConfig:
     # One immutable object carries all runtime settings from the CLI/.env into
     # the agent, tools, tracing metadata, and memory helpers.
@@ -89,51 +100,12 @@ def config_from_env(
         or "./data/sample.db"
     )
 
-    resolved_provider = (provider or os.environ.get("SQL_AGENT_MODEL_PROVIDER") or "openrouter").strip().lower()
-    if resolved_provider not in _VALID_MODEL_PROVIDERS:
-        raise RuntimeError("Model provider must be 'openai', 'local', or 'openrouter'.")
-
-    # Provider selection determines which API key, base URL, model name, and
-    # optional default headers are passed to ChatOpenAI later.
-    if resolved_provider == "local":
-        # Local providers are OpenAI-compatible servers. If no model is set, ask
-        # the server for /models and use the first advertised model id.
-        resolved_base_url = _normalize_base_url(
-            base_url or os.environ.get("LOCAL_MODEL_BASE_URL") or _DEFAULT_LOCAL_MODEL_BASE_URL
-        )
-        resolved_api_key = os.environ.get("LOCAL_MODEL_API_KEY") or _DEFAULT_LOCAL_MODEL_API_KEY
-        resolved_model = model or os.environ.get("LOCAL_MODEL_NAME") or _detect_local_model(
-            resolved_base_url,
-            resolved_api_key,
-        )
-        resolved_default_headers: dict[str, str] = {}
-    elif resolved_provider == "openrouter":
-        # OpenRouter uses the OpenAI chat protocol plus optional attribution
-        # headers, so it can still be driven through ChatOpenAI.
-        resolved_base_url = _normalize_base_url(
-            base_url or os.environ.get("OPENROUTER_BASE_URL") or _DEFAULT_OPENROUTER_BASE_URL
-        )
-        resolved_model = model or os.environ.get("OPENROUTER_MODEL")
-        if not resolved_model:
-            raise RuntimeError("OPENROUTER_MODEL must be set or passed with --model.")
-
-        resolved_api_key = os.environ.get("OPENROUTER_API_KEY")
-        if not resolved_api_key:
-            raise RuntimeError("OPENROUTER_API_KEY must be set before using the OpenRouter provider.")
-
-        resolved_default_headers = _openrouter_headers()
-    else:
-        # Native OpenAI keeps the default SDK endpoint unless OPENAI_BASE_URL or
-        # --base-url is provided for a compatible proxy.
-        resolved_base_url = _normalize_base_url(base_url or os.environ.get("OPENAI_BASE_URL"))
-        resolved_model = model or os.environ.get("OPENAI_MODEL")
-        if not resolved_model:
-            raise RuntimeError("OPENAI_MODEL must be set or passed with --model.")
-
-        resolved_api_key = os.environ.get("OPENAI_API_KEY")
-        if not resolved_api_key:
-            raise RuntimeError("OPENAI_API_KEY must be set before using the OpenAI provider.")
-        resolved_default_headers = {}
+    model_settings = model_settings_from_env(
+        provider=provider,
+        model=model,
+        base_url=base_url,
+        provider_env_var="SQL_AGENT_MODEL_PROVIDER",
+    )
 
     resolved_max_rows = max_rows
     if resolved_max_rows is None:
@@ -160,17 +132,110 @@ def config_from_env(
 
     return AgentConfig(
         db_path=resolved_db_path,
-        model=resolved_model,
-        provider=resolved_provider,
-        base_url=resolved_base_url,
-        api_key=resolved_api_key,
-        default_headers=resolved_default_headers,
+        model=model_settings.model,
+        provider=model_settings.provider,
+        base_url=model_settings.base_url,
+        api_key=model_settings.api_key,
+        default_headers=model_settings.default_headers,
         max_rows=max(1, resolved_max_rows),
         show_sql=show_sql,
         show_table=show_table,
         memory_enabled=resolved_memory_enabled,
         memory_path=resolved_memory_path,
         audit_log_path=resolved_audit_log_path,
+    )
+
+
+def model_settings_from_env(
+    *,
+    provider: str | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    provider_env_var: str | None = None,
+    model_env_var: str | None = None,
+    base_url_env_var: str | None = None,
+    fallback: ModelSettings | AgentConfig | None = None,
+) -> ModelSettings:
+    # Resolve OpenAI-compatible chat settings once so the SQL agent and planner
+    # follow the same provider behavior. Planner-specific env vars can override
+    # provider/model/base URL while API keys continue to come from provider envs.
+    fallback_provider = getattr(fallback, "provider", None)
+    resolved_provider = (
+        provider
+        or _optional_env(provider_env_var)
+        or fallback_provider
+        or "openrouter"
+    ).strip().lower()
+    if resolved_provider not in _VALID_MODEL_PROVIDERS:
+        raise RuntimeError("Model provider must be 'openai', 'local', or 'openrouter'.")
+    fallback_matches = fallback_provider == resolved_provider
+
+    fallback_model = getattr(fallback, "model", None) if fallback_matches else None
+    fallback_base_url = getattr(fallback, "base_url", None) if fallback_matches else None
+    fallback_api_key = getattr(fallback, "api_key", None) if fallback_matches else None
+    fallback_headers = (
+        dict(getattr(fallback, "default_headers", {}) or {})
+        if fallback_matches
+        else {}
+    )
+
+    planner_model = model or _optional_env(model_env_var) or fallback_model
+    planner_base_url = base_url or _optional_env(base_url_env_var) or fallback_base_url
+
+    if resolved_provider == "local":
+        resolved_base_url = _normalize_base_url(
+            planner_base_url
+            or os.environ.get("LOCAL_MODEL_BASE_URL")
+            or _DEFAULT_LOCAL_MODEL_BASE_URL
+        )
+        resolved_api_key = (
+            os.environ.get("LOCAL_MODEL_API_KEY")
+            or fallback_api_key
+            or _DEFAULT_LOCAL_MODEL_API_KEY
+        )
+        resolved_model = (
+            planner_model
+            or os.environ.get("LOCAL_MODEL_NAME")
+            or _detect_local_model(
+                resolved_base_url,
+                resolved_api_key,
+            )
+        )
+        resolved_default_headers: dict[str, str] = {}
+    elif resolved_provider == "openrouter":
+        resolved_base_url = _normalize_base_url(
+            planner_base_url
+            or os.environ.get("OPENROUTER_BASE_URL")
+            or _DEFAULT_OPENROUTER_BASE_URL
+        )
+        resolved_model = planner_model or os.environ.get("OPENROUTER_MODEL")
+        if not resolved_model:
+            raise RuntimeError("OPENROUTER_MODEL must be set or passed with --model.")
+
+        resolved_api_key = os.environ.get("OPENROUTER_API_KEY") or fallback_api_key
+        if not resolved_api_key:
+            raise RuntimeError("OPENROUTER_API_KEY must be set before using the OpenRouter provider.")
+
+        resolved_default_headers = _openrouter_headers() or fallback_headers
+    else:
+        resolved_base_url = _normalize_base_url(
+            planner_base_url or os.environ.get("OPENAI_BASE_URL")
+        )
+        resolved_model = planner_model or os.environ.get("OPENAI_MODEL")
+        if not resolved_model:
+            raise RuntimeError("OPENAI_MODEL must be set or passed with --model.")
+
+        resolved_api_key = os.environ.get("OPENAI_API_KEY") or fallback_api_key
+        if not resolved_api_key:
+            raise RuntimeError("OPENAI_API_KEY must be set before using the OpenAI provider.")
+        resolved_default_headers = {}
+
+    return ModelSettings(
+        model=resolved_model,
+        provider=resolved_provider,
+        base_url=resolved_base_url,
+        api_key=resolved_api_key,
+        default_headers=resolved_default_headers,
     )
 
 
@@ -197,13 +262,18 @@ def build_agent(config: AgentConfig):
         return create_react_agent(model, tools=tools, state_modifier=prompt)
 
 
-def ask(question: str, config: AgentConfig) -> AgentAnswer:
+def ask(
+    question: str,
+    config: AgentConfig,
+    run_name: str = "sql-agent ask",
+    metadata: dict[str, Any] | None = None,
+) -> AgentAnswer:
     # One-shot mode builds an agent, sends a single user message, normalizes the
     # LangGraph output, then optionally updates persistent memory.
     agent = build_agent(config)
     result = agent.invoke(
         {"messages": [{"role": "user", "content": question}]},
-        config=_runnable_config(config, run_name="sql-agent ask"),
+        config=_runnable_config(config, run_name=run_name, metadata=metadata),
     )
     answer = _answer_from_result(result)
     _remember_after_answer(question, answer, config)
@@ -629,6 +699,15 @@ def _normalize_base_url(base_url: str | None) -> str | None:
     if not base_url:
         return None
     return base_url.rstrip("/")
+
+
+def _optional_env(name: str | None) -> str | None:
+    if not name:
+        return None
+    value = os.environ.get(name)
+    if value is None or not value.strip():
+        return None
+    return value
 
 
 def _openrouter_headers() -> dict[str, str]:
